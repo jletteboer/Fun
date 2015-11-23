@@ -1,1 +1,1 @@
-# This repositority I use for Fun R code
+# This repository I use for Fun R code
