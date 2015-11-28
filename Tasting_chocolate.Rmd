@@ -1,0 +1,135 @@
+---
+title: "Tasting Chocolate"
+author: "John Letteboer"
+date: "11/23/2015"
+output: 
+  html_document: 
+    fig_caption: yes
+    fig_height: 6
+    fig_width: 10
+    keep_md: yes
+    theme: cosmo
+---
+```{r set-options, echo=FALSE, cache=FALSE}
+options(width = 180)
+```
+
+Q1: Is there a difference taste score between female and male.
+
+- H0: man = female
+- H1: man $\ne$ female
+
+Loading required packages.
+```{r}
+library(ggplot2)
+library(RColorBrewer)
+library(psych, quietly = T)
+#library(MVN)
+```
+
+Load the dataset.
+```{r}
+df <- read.csv("Tasting_chocolate.csv", header=TRUE, sep = ";")
+```
+
+After loading the dataset let's have a look at the data.
+```{r}
+dim(df)
+head(df)
+str(df)
+summary(df)
+#describeBy(df, group = "gender")
+```
+
+We can see the dataset has 150 objects and 4 variables, `type`, `gender`, `gender.1` and `taste`.
+
+### First Step
+#### 1. Are there missing values?
+
+```{r}
+any(is.na(df))
+```
+
+As we can see there are no missiong values.
+
+#### 2. Are there outliers?
+Let's make a boxplot to see if there are any outliers
+
+```{r}
+boxplot(df$taste ~ df$gender)
+points(df$taste~df$gender,col="red")
+```
+
+There are no outliers.
+
+#### 3. Are the data normal distrubuted
+
+Let make some histograms
+```{r}
+cols <- rev(brewer.pal(7,"Spectral"))
+ggplot(df, aes(taste, fill=gender)) + 
+    facet_grid( type ~ gender) + 
+    geom_histogram(binwidth=.5, alpha=.5, position="identity") + 
+    theme_bw() + 
+    scale_fill_manual(values = cols)
+```
+
+Let make two subsets of gender, `male` and `female`.
+```{r}
+male <- df[df$gender == "male",]
+female <- df[df$gender == "female",]
+```
+
+Let see if the data is normal distributed.
+```{r}
+par(mfrow = c(1, 2))
+hist(male$taste, 
+     labels = TRUE, 
+     breaks = c(-4:4), 
+     main="Histogram Male", 
+     xlab="Taste", 
+     col="lightblue", 
+     ylim = c(0,30))
+hist(female$taste, 
+     labels = TRUE, 
+     breaks = c(-4:4), 
+     main="Histogram Female", 
+     xlab="Taste",
+     col="lightblue", 
+     ylim = c(0,30))
+```
+
+As we can see is the data normal distrubuted.
+
+Let do a independent 2-group t-test
+```{r}
+t.test(taste ~ gender, df)
+```
+
+
+
+
+```{r}
+df$type_short[df$type == "Own brand Carrefour"] <- "own"
+df$type_short[df$type == "Chocolate bar Van Houten"] <- "bar"
+df$type_short[df$type == "Chocolate milk Van Houten"] <- "milk"
+df$type_short <- as.factor(df$type_short)
+
+boxplot(df$taste ~ df$type_short)
+boxplot(df$taste ~ df$gender)
+
+aov1 <- aov(df$taste ~ df$type_short)
+summary(aov1)
+TukeyHSD(aov1)
+plot(TukeyHSD(aov1))
+
+aov2 <- aov(df$taste ~ df$gender)
+summary(aov2)
+TukeyHSD(aov2)
+plot(TukeyHSD(aov2))
+
+aov3 <- aov(df$taste ~ df$gender * df$type_short)
+summary(aov3)
+TukeyHSD(aov3)
+plot(TukeyHSD(aov3), las = 2)
+```
