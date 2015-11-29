@@ -1,12 +1,10 @@
 ---
 title: "Tasting Chocolate"
 author: "John Letteboer"
-date: "11/23/2015"
+date: "11/29/2015"
 output: 
   html_document: 
     fig_caption: yes
-    fig_height: 6
-    fig_width: 10
     keep_md: yes
     theme: cosmo
 ---
@@ -16,15 +14,16 @@ options(width = 180)
 
 Q1: Is there a difference taste score between female and male.
 
-- H0: man = female
-- H1: man $\ne$ female
+- H~0~: man = female
+- H~1~: man $\ne$ female
+- Confidence interval is .95
+- $\alpha$ = .05
 
 Loading required packages.
-```{r}
+```{r message=FALSE}
 library(ggplot2)
 library(RColorBrewer)
-library(psych, quietly = T)
-#library(MVN)
+library(psych)
 ```
 
 Load the dataset.
@@ -35,17 +34,16 @@ df <- read.csv("Tasting_chocolate.csv", header=TRUE, sep = ";")
 After loading the dataset let's have a look at the data.
 ```{r}
 dim(df)
-head(df)
+head(df, 2)
 str(df)
 summary(df)
-#describeBy(df, group = "gender")
 ```
 
 We can see the dataset has 150 objects and 4 variables, `type`, `gender`, `gender.1` and `taste`.
 
+## t-Test
 ### First Step
 #### 1. Are there missing values?
-
 ```{r}
 any(is.na(df))
 ```
@@ -53,82 +51,94 @@ any(is.na(df))
 As we can see there are no missiong values.
 
 #### 2. Are there outliers?
-Let's make a boxplot to see if there are any outliers
+Let's make a boxplot to see if there are any outliers.
 
 ```{r}
-boxplot(df$taste ~ df$gender)
-points(df$taste~df$gender,col="red")
+boxplot(df$taste ~ df$gender, col="gray", outcol="red")
 ```
 
 There are no outliers.
 
 #### 3. Are the data normal distrubuted
-
 Let make some histograms
 ```{r}
-cols <- rev(brewer.pal(7,"Spectral"))
+cols <- brewer.pal(11,"Set1")
 ggplot(df, aes(taste, fill=gender)) + 
     facet_grid( type ~ gender) + 
     geom_histogram(binwidth=.5, alpha=.5, position="identity") + 
     theme_bw() + 
-    scale_fill_manual(values = cols)
+    scale_fill_manual(values = cols) + 
+    theme(legend.position="none")
 ```
 
-Let make two subsets of gender, `male` and `female`.
+From the histograms we can see that the data is looks normal distrubuted.
+
+Now calculate this with the Kurtosis and Skewness.
+
+- The skewness is a measure of symmetry. As a rule, negative skewness indicates that the mean of the data values is less than the median, and the data distribution is left-skewed. Positive skewness would indicates that the mean of the data values is larger than the median, and the data distribution is right-skewed.
+- The kurtosis is a measure of the peakedness of the data distribution. Negative kurtosis would indicates a flat data distribution, which is said to be platykurtic. Positive kurtosis would indicates a peaked distribution, which is said to be leptokurtic. Incidentally, the normal distribution has zero kurtosis, and is said to be mesokurtic.
+
 ```{r}
-male <- df[df$gender == "male",]
-female <- df[df$gender == "female",]
+kurtosis <- aggregate(taste ~ gender + type, df, kurtosi)
+skewness <- aggregate(taste ~ gender + type, df, skew)
+kurtosis
+skewness
 ```
 
-Let see if the data is normal distributed.
+### Second step
+Determine equality of variances by doing a F-test.
 ```{r}
-par(mfrow = c(1, 2))
-hist(male$taste, 
-     labels = TRUE, 
-     breaks = c(-4:4), 
-     main="Histogram Male", 
-     xlab="Taste", 
-     col="lightblue", 
-     ylim = c(0,30))
-hist(female$taste, 
-     labels = TRUE, 
-     breaks = c(-4:4), 
-     main="Histogram Female", 
-     xlab="Taste",
-     col="lightblue", 
-     ylim = c(0,30))
+var.test(df$taste[df$gender=="female"], df$taste[df$gender=="male"])
 ```
 
-As we can see is the data normal distrubuted.
+The p-value > $\alpha$ (.05), we accept H~0~
 
-Let do a independent 2-group t-test
+### Third step
+Let's do a independent 2-group t-test of `taste` over `gender`
 ```{r}
 t.test(taste ~ gender, df)
 ```
 
-
-
-
+## ANOVA
+First resize lenght of `type`, because it's better for plotting.
 ```{r}
 df$type_short[df$type == "Own brand Carrefour"] <- "own"
 df$type_short[df$type == "Chocolate bar Van Houten"] <- "bar"
 df$type_short[df$type == "Chocolate milk Van Houten"] <- "milk"
 df$type_short <- as.factor(df$type_short)
+```
 
-boxplot(df$taste ~ df$type_short)
-boxplot(df$taste ~ df$gender)
+Create a boxplot to see if there are outliers per type
+```{r}
+boxplot(df$taste ~ df$type_short, col="gray", outcol="red")
+```
 
-aov1 <- aov(df$taste ~ df$type_short)
+Create histograms to see if the data is normal distrubuted
+```{r}
+ggplot(df, aes(taste, fill=type)) + 
+    facet_grid(type~.) + 
+    geom_histogram(binwidth=.5, alpha=.5, position="identity") + 
+    theme_bw() + 
+    scale_fill_manual(values = cols) + 
+    theme(legend.position="none")
+```
+
+There are some outliers but not that bad.
+
+Create ANOVA
+```{r}
+aov1 <- aov(taste ~ type_short, df)
 summary(aov1)
 TukeyHSD(aov1)
 plot(TukeyHSD(aov1))
 
-aov2 <- aov(df$taste ~ df$gender)
+aov2 <- aov(taste ~ gender, df)
 summary(aov2)
 TukeyHSD(aov2)
 plot(TukeyHSD(aov2))
 
-aov3 <- aov(df$taste ~ df$gender * df$type_short)
+par(mar = c(5,12,4,2), cex = 0.7)
+aov3 <- aov(taste ~ gender * type_short, df)
 summary(aov3)
 TukeyHSD(aov3)
 plot(TukeyHSD(aov3), las = 2)
